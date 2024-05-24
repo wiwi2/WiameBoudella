@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "file_io.h"
 
 void write_training_data(const char* filename, Training* trainings, int num_trainings) {// permet d'écrire les informations de chaque athlète dans un fichier créé à leur nom
