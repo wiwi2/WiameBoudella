@@ -1,5 +1,5 @@
-#ifndef TIME_UTIL_H
-#define TIME_UTIL_H
+#ifndef TIME_H
+#define TIME_H
 
 typedef struct {
     int hours;
