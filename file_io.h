@@ -1,7 +1,7 @@
 #ifndef FILE_IO_H
 #define FILE_IO_H
 
-#include "structures.h" 
+#include "athlete_training.h" 
 
 void write_training_data(const char* filename, Training* trainings, int num_trainings);
 void get_trainings(const char *filename);
