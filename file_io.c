@@ -34,7 +34,7 @@ void get_trainings(const char *filename) {  // permet d'afficher l'historique de
 }
 
 
-void add_training(const char *filename) { // fonction pour ajouter des entrainements à l'athlete choisi 
+/*void add_training(const char *filename) { // fonction pour ajouter des entrainements à l'athlete choisi 
     FILE* file;
     Training new;
     Date date;
@@ -126,4 +126,4 @@ void add_training(const char *filename) { // fonction pour ajouter des entrainem
     else{
         fprintf(file, "%s ; %s ; %s\n", linedate, new.type, linetime);} // enfin, copie toutes les informations récoltées sur une nouvelle ligne à la fin du fichier 
     fclose(file);
-}
+}*/
