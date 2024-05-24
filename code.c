@@ -138,7 +138,7 @@ void write_training_data(const char* filename, Training* trainings, int num_trai
     }
     
     for (int i = 0; i < num_trainings; i++) {
-         if(strcmp(trainings[i].type, "Relay 4x400m")==0){
+         if(strcmp(trainings[i].type, "Relay4x400m")==0){
         fprintf(file, "%s ; %s ; %s ; %d\n", trainings[i].date, trainings[i].type, trainings[i].time, trainings[i].position);
          }
         else {fprintf(file, "%s ; %s ; %s\n", trainings[i].date, trainings[i].type, trainings[i].time);
@@ -186,7 +186,7 @@ void add_training(const char *filename) { // fonction pour ajouter des entrainem
     int type_code;
     do {
         printf("What is the type of the practice ? Write:\n 1 for 100m\n 2 for 400m\n 3 for 5000m\n 4 for marathon\n 5 for Relay4x400m\n");
-        scanf("%d", &type_code);
+        type_code = get_int_input(); 
     } while (type_code > 5 || type_code < 1);
 
     if (type_code == 5) { // on vérifie la condition pour le relais : pas 2 relais le même jour !
@@ -268,7 +268,6 @@ double total_time = 0;
         printf("No training found in the file %s.\n", filename);
         return;
     }
-  
 
     while (fgets(line, sizeof(line), file)) { // lecture du fichier ligne par ligne
         char temp_type[50];
@@ -353,19 +352,19 @@ void top_athletes(Athlete *athletes, int num_ath, const char* type, int num_top)
         char line[256];
         int count = 0; // correspondra au nombre d’entraînements en fonction du type demandé
         double total_time = 0.0; // somme des temps pour calculer la moyenne
-        if (strcmp(type, "Relay4x400m") == 0) { // si c’est un relais
+        if (strcmp(type, "Relay4x400m") == 0) { // si c’est un relais (car le relais a la position en plus)
             while (fgets(line, sizeof(line), file)) { // lecture ligne par ligne
                 char temp_type[500]; 
                 char temp_time[500];
                 int temp_position;
-                int items_parsed = sscanf(line, "%*s ; %s ; %s ; %*d", temp_type, temp_time);
-                if (items_parsed == 2 && strcmp(temp_type, type) == 0) {
+                int items_parsed = sscanf(line, "%*s ; %s ; %s ; %*d", temp_type, temp_time); // on vérifie que sscanf lit bien deux éléments avant de continuer
+                if (items_parsed == 2 && strcmp(temp_type, type) == 0) { 
                     total_time += get_time_seconds(temp_time);
-                    count++;
+                    count++; //on incrémenté pour ensuite l’utiliser pour le calcul de la moyenne 
                 }
             }
-        } else {
-            while (fgets(line, sizeof(line), file)) {
+        } else { // si ce n’est pas un relais (pas de position à prendre en compte) 
+            while (fgets(line, sizeof(line), file)) { //lecture ligne par ligne 
                 char temp_type[500]; 
                 char temp_time[500];
                 int items_parsed = sscanf(line, "%*s ; %s ; %s", temp_type, temp_time); 
@@ -379,8 +378,8 @@ void top_athletes(Athlete *athletes, int num_ath, const char* type, int num_top)
         
         if (count > 0) {
             times[num_athletes] = total_time / count;  // calcul de la moyenne des temps
-            strcpy(names[num_athletes], athletes[i].name);   // stockage du nom de l’athlète
-            num_athletes++;
+            strcpy(names[num_athletes], athletes[i].name);   // stockage du nom de l’athlète dans le tableau des noms 
+            num_athletes++; // on incrémente pour pouvoir savoir combien d’athlètes participent à l’entraînement dont il est question 
         } else {
             printf("\nNo valid data for %s in file %s.\n", type, filename); 
         }
@@ -393,72 +392,86 @@ void top_athletes(Athlete *athletes, int num_ath, const char* type, int num_top)
         printf("%d. %s\n", i + 1, names[i]);
     }
 
-    if (num_top == 3 && num_athletes >= 3) {
+    if (num_top == 3 && num_athletes >= 3) { // message si l’utilisateur demande le top 3 uniquement 
         printf("\nYou should send them to the JO !!!\n");
     }
 }
 
-void athlete_progression(const char* filename, const char* type, Date date1, Date date2) { 
-   // calcule la différence entre 2 temps à 2 dates et pour un type donné 
-   FILE *file;
-    char line[256]; //tampon pour lire chaque ligne
+int compare_dates(Date date1, Date date2) { // fonction permettant de vérifier quelle date est avant l'autre et que la progression du joueur soit logique
+    if (date1.year != date2.year) {
+        return date1.year - date2.year;
+    } else if (date1.month != date2.month) {
+        return date1.month - date2.month;
+    } else {
+        return date1.days - date2.days;
+    }
+}
+
+void athlete_progression(const char* filename, const char* type, Date date1, Date date2) { // calcule la différence entre 2 temps à 2 dates et pour un type donné 
+    FILE *file;
+    char line[256];  //tampon pour lire chaque ligne
     double time1 = 0.0, time2 = 0.0;
-    double difference = 0 ;
-    int found1 = 0, found2 = 0; //indicateurs pour savoir si les temps ont été trouvés
+    int found1 = 0, found2 = 0; // indicateurs pour savoir si les temps ont été trouvés
     char firstdate[256]; 
     char secdate[256];
     sprintf(firstdate, "%04d-%02d-%02d", date1.year, date1.month, date1.days); // stocke la première date dans ‘firstdate’ sous la forme d’une ligne
-    sprintf(secdate, "%04d-%02d-%02d", date2.year, date2.month, date2.days);  // stocke la seconde date dans ‘secdate’ sous la forme d’une ligne
+    sprintf(secdate, "%04d-%02d-%02d", date2.year, date2.month, date2.days); //stocke la seconde date dans ‘secdate’ sous la forme d’une ligne
 
     file = fopen(filename, "r");
     if (file == NULL) {
         printf("\nNo training found in file %s.\n", filename);
         return;
-   }
-    // Recherche du temps de l'athlète pour l'épreuve à chaque date
-    while(fgets(line, sizeof(line), file)) {  //lecture ligne par ligne
-        char temp_type[50], temp_date[50], temp_time[50];  // on y stocke le type, date et temps de chaque ligne
-        if(strcmp(type, "Relay4x400m")==0){
-            sscanf(line, "%*s ; %s ; %s ; %*d", temp_type, temp_time); 
-        } else{
-        sscanf(line, "%*s ; %s ; %s", temp_type, temp_time); // extrait le type et temps, ignore la date (en respectant le même format)
+    }
+
+     // Recherche du temps de l'athlète pour l'épreuve à chaque date
+
+    while (fgets(line, sizeof(line), file)) { // lecture ligne par ligne
+        char temp_type[50], temp_date[50], temp_time[50]; // on y stockera le type, date et temps de chaque ligne
+        if (strcmp(type, "Relay4x400m") == 0) {
+            sscanf(line, "%*s ; %s ; %s ; %*d", temp_type, temp_time); // extrait le type et temps, ignore la date (en respectant le même format)
+        } else {
+            sscanf(line, "%*s ; %s ; %s", temp_type, temp_time); // extrait le type et temps, ignore la date (en respectant le même format)
         }
         if (strcmp(temp_type, type) == 0) { // vérifie si les types correspondent 
-        if(strcmp(type, "Relay4x400m")==0){
-            sscanf(line, "%s ; %*s ; %s ; %*d", temp_date, temp_time);}
-            else{
-            sscanf(line, "%s ; %*s ; %s", temp_date, temp_time); // extrait date et temps, ignore le type en respectant le mm format    
-}
-if (strcmp(temp_date, firstdate) == 0) {
-                time1 = get_time_seconds(temp_time); // temps est converti en secondes et stocké dans time1
-                found1 = 1;  // indique que le temps est trouvé
+            if (strcmp(type, "Relay4x400m") == 0) {
+                sscanf(line, "%s ; %*s ; %s ; %*d", temp_date, temp_time);
+            } else {
+                sscanf(line, "%s ; %*s ; %s", temp_date, temp_time); 
+            }
+            if (strcmp(temp_date, firstdate) == 0) {
+                time1 = get_time_seconds(temp_time);  // temps est converti en secondes et stocké dans time1
+                found1 = 1; // indique que le temps est trouvé
             }
             if (strcmp(temp_date, secdate) == 0) {
                 time2 = get_time_seconds(temp_time);
                 found2 = 1;
             }
-            if (found1 && found2) {  // si on a 2 temps
-	    difference = time2 - time1 ;
-	    if(difference < 0){
-                printf("\nBetween the %s and the %s, the time of this athlete decreased of %.2f seconds \n", firstdate, secdate, -difference);   
-    printf("YOUHOU ! The athlete has progressed ! \n") ;
-	}
-	else if ( difference > 0){
-	printf("\nBetween the %s and the %s, the time of this athlete increased of %.2f seconds \n", firstdate, secdate, difference);
-    printf("\nOlala the athlete has regressed ! He should run faster ! :( \n") ;}
-    else{
-    printf("\nThe athlete's time has remained the same, that's already it. \n");
-}
+            if (found1 && found2) { //  si on a 2 temps, on continue : on peut faire les calculs 
+                double difference = time2 - time1;
+                if (compare_dates(date1, date2) > 0) { 
+                    difference = time1 - time2;
+                }
+                if (difference < 0) { // 1er cas : il s’est amélioré entre les deux dates
+                    printf("\nBetween %s and %s, the time of this athlete decreased by %.2f seconds\n", firstdate, secdate, -difference);
+                    printf("YOUHOU! The athlete has progressed!\n");
+                } else if (difference > 0) { // 2e cas : il a régressé entre les deux dates
+                    printf("\nBetween %s and %s, the time of this athlete increased by %.2f seconds\n", secdate, firstdate, difference);
+                    printf("Olala, the athlete has regressed! He should run faster! :(\n");
+                } else {
+                    printf("\nThe athlete's time has remained the same, that's already something.\n");
+                }
                 fclose(file);
                 return;
             }
         }
     }
+    fclose(file);
+    printf("\nNo matching data found for the given dates.\n");
 }
 
 
 int main() {
-// Création des athlètes
+// création des athlètes
     Athlete athletes[] = {
         {"Hari"},
         {"Rayan"},
@@ -467,7 +480,7 @@ int main() {
         {"Hicham"}
     };
 
-   // Données d'entraînement pour chaque athlète
+   // données d'entraînement pour chaque athlète
     Training hari_trainings[] = {
         {"2024-05-01" , "100m" , "00h00m12.5s" },
         {"2024-05-05" , "400m" , "00h00m58.3s" },
@@ -529,14 +542,14 @@ int main() {
         {"2024-03-02" , "Marathon" , "3h02m02s"}
     };
 
- // Écriture des données d'entraînement dans des fichiers pour chaque athlète
+ // écriture des données d'entraînement dans des fichiers pour chaque athlète
     write_training_data("Hari.txt", hari_trainings, sizeof(hari_trainings) / sizeof(hari_trainings[0]));
     write_training_data("Rayan.txt", rayan_trainings, sizeof(rayan_trainings) / sizeof(rayan_trainings[0]));
     write_training_data("Amine.txt", amine_trainings, sizeof(amine_trainings) / sizeof(amine_trainings[0]));
     write_training_data("Dahmane.txt", dahmane_trainings, sizeof(dahmane_trainings) / sizeof(dahmane_trainings[0]));
     write_training_data("Hicham.txt", hicham_trainings, sizeof(hicham_trainings) / sizeof(hicham_trainings[0]));
 
- // Affichage de la liste des athlètes avec des numéros associés
+ // affichage de la liste des athlètes avec des numéros associés
     printf("\nAthletes list :\n");
     for (int i = 0; i < sizeof(athletes) / sizeof(athletes[0]); i++) {
         printf("%d. %s\n", i + 1, athletes[i].name);
@@ -551,22 +564,21 @@ int main() {
 
         if (user_choice == 1) {
             int athlete_choice;
-// A COMMENTER A PARTIR D’ICI
             do {
-                printf("Choose the athlete that you want to check up (1 to %ld) : \n", sizeof(athletes) / sizeof(athletes[0]));
-                athlete_choice = get_int_input();
-                if (athlete_choice < 1 || athlete_choice > sizeof(athletes) / sizeof(athletes[0])) {
+                printf("Choose the athlete that you want to check up (1 to %ld) : \n", sizeof(athletes) / sizeof(athletes[0])); // sizeof(athletes)/sizeof(athletes[0]) correspond au nombre d’athlètes au total (athlètes étant une structure..)
+                athlete_choice = get_int_input(); // vérification que le choix de l’utilisateur est bon 
+                if (athlete_choice < 1 || athlete_choice > sizeof(athletes) / sizeof(athletes[0])) { 
                     printf("\nInvalid choice.\n");
                 }
             } while (athlete_choice < 1 || athlete_choice > sizeof(athletes) / sizeof(athletes[0]));
 
             char filename[100];
-            sprintf(filename, "%s.txt", athletes[athlete_choice - 1].name);
+            sprintf(filename, "%s.txt", athletes[athlete_choice - 1].name); // on récupère grâce au choix de l’utilisateur le nom de l’athlète et ouvre le fichier correspondant
             get_trainings(filename);
 
             do {
                 printf("\nDo you want to add practices to this athlete ? (1 for Yes, 2 for No) : \n");
-                user_choice = get_int_input();
+                user_choice = get_int_input(); // vérification
                 if (user_choice == 1) {
                     add_training(filename);
                 } else if (user_choice != 2) {
@@ -578,8 +590,12 @@ int main() {
         }
     } while (user_choice != 2);
 
+
+
+    do{
     printf("\nDo you want to see a top of the best athletes ? (1 for Yes, 2 for No.)\n");
-    user_choice = get_int_input();
+    user_choice = get_int_input(); // vérification 
+    } while(user_choice !=1 && user_choice!=2); 
     char choice2[100];
     int top;
 
@@ -587,9 +603,9 @@ int main() {
         do {
             printf("\nOf which practice ? : Write : \n 1 for 100m \n 2 for 400m \n 3 for 5000m \n 4 for Marathon \n 5 for Relay4x400m \n");
             scanf("%s", choice2);
-        } while (strcmp(choice2, "5") > 0 || strcmp(choice2, "1") < 0);
+        } while (strcmp(choice2, "5") > 0 || strcmp(choice2, "1") < 0); // on va poser la question jusqu’à ce que ça marche 
 
-        if (strcmp(choice2, "1") == 0) {
+        if (strcmp(choice2, "1") == 0) { // on met en lien le choix de l’utilisateur et l'entraînement qui y correspond 
             strcpy(choice2, "100m");
         } else if (strcmp(choice2, "2") == 0) {
             strcpy(choice2, "400m");
@@ -605,23 +621,23 @@ int main() {
 
         do {
             printf("\nWhat is the top that you want ? (Minimum=1 and Maximum=5)\n");
-            top = get_int_input();
+            top = get_int_input(); // vérification 
         } while (top < 1 || top > 5);
 
         top_athletes(athletes, 5, choice2, top);
     }
 
-    int choice; // Variable pour stocker le choix de l'utilisateur
-    int athlete_choice; // Variable pour stocker le choix de l'athlète
+    int choice; 
+    int athlete_choice; 
     do {
         printf("\nDo you want to see the summary of an athlete ? (1 for Yes, 2 for No) : \n");
-        choice = get_int_input();
+        choice = get_int_input(); // vérification du choix 
 
         if (choice == 1) {
             char filename[100];
             do {
                 printf("Choose an athlete (1: Hari, 2: Rayan, 3: Amine, 4: Dahmane, 5: Hicham) : ");
-                athlete_choice = get_int_input();
+                athlete_choice = get_int_input(); // vérification 
             } while (athlete_choice < 1 || athlete_choice > 5);
 
             char word[100];
@@ -629,9 +645,9 @@ int main() {
             do {
                 printf("\nOf which practice ? : Write : \n 1 for 100m \n 2 for 400m \n 3 for 5000m \n 4 for Marathon \n 5 for Relay4x400m \n");
                 choice3 = get_int_input();
-            } while (choice3 < 1 || choice3 > 5);
+            } while (choice3 < 1 || choice3 > 5); // on va redemander jusqu’à ce que le choix est bon 
 
-            switch (choice3) {
+            switch (choice3) { // on met en lien le choix et l’entraînement qui correspond 
                 case 1:
                     strcpy(word, "100m");
                     break;
@@ -652,13 +668,13 @@ int main() {
                     break;
             }
 
-            sprintf(filename, "%s.txt", athletes[athlete_choice - 1].name);
+            sprintf(filename, "%s.txt", athletes[athlete_choice - 1].name); // d’après le choix, on récupère l’athlète correspondant, lui ajoute txt pour ensuite pouvoir l’ouvrir dans la fonction athlete_summary 
             athlete_summary(filename, word);
         }
     } while (choice != 2);
 
-    int choice_progress;// Variable pour stocker le choix de l'utilisateur (1 ou 2)
-    int athletechoice;  // Variable pour stocker le choix de l'athlète (1 à 5)
+    int choice_progress;// variable pour stocker le choix de l'utilisateur (1 ou 2)
+    int athletechoice;  // variable pour stocker le choix de l'athlète (1 à 5)
     FILE* file;
     char filename[100];
     char typetraining[100];
@@ -666,15 +682,15 @@ int main() {
 
     do {
         printf("\nDo you want to see the athlete progression ? (1 for Yes, 2 for No) : \n");
-        choice_progress = get_int_input();
+        choice_progress = get_int_input(); // vérification 
 
         if (choice_progress == 1) {
             do {
-                printf("\nChoose an athlete (1: Hari, 2: Rayan, 3: Amine, 4: Dahmane, 5: Hicham) :\n ");
-                athletechoice = get_int_input();
+                printf("\nChoose an athlete (1: Hari, 2: Rayan, 3: Amine, 4: Dahmane, 5: Hicham) : \n ");
+                athletechoice = get_int_input(); // vérification 
             } while (athletechoice < 1 || athletechoice > 5);
 
-            sprintf(filename, "%s.txt", athletes[athletechoice - 1].name);
+            sprintf(filename, "%s.txt", athletes[athletechoice - 1].name); // on récupère le choix de l’athlète pour ensuite ouvrir le fichier correspondant 
             file = fopen(filename, "r");
 
             char line[100];
@@ -682,10 +698,10 @@ int main() {
 
             do {
                 printf("\nOf which practice ? : Write : \n 1 for 100m \n 2 for 400m \n 3 for 5000m \n 4 for Marathon \n 5 for Relay 4*400 m \n");
-                choice4 = get_int_input();
+                choice4 = get_int_input(); // vérification 
             } while (choice4 < 1 || choice4 > 5);
 
-            switch (choice4) {
+            switch (choice4) { // on copie dans typetraining l’entraînement en fonction du choix de l’utilisateur (1, 2, 3, 4 ou 5)
                 case 1:
                     strcpy(typetraining, "100m");
                     break;
@@ -705,19 +721,19 @@ int main() {
                     printf("\nInput error\n");
                     break;
             }
-
             Date date1;
             Date date2;
             char linedate[256];
             printf("\nWhat is the first date ?\n"); 
-            date1 = constr_Date();
-            sprintf(linedate, "%d-%d-%d", date1.year, date1.month, date1.days); // stocke la date dans ‘linedate’ sous forme d’un ligne de chaîne de caractères
+            date1 = constr_Date(); // récupération de la date grâce à la fonction 
+            sprintf(linedate, "%d-%d-%d", date1.year, date1.month, date1.days); // stocke la date dans ‘linedate’ sous forme d’une ligne de chaîne de caractères
             printf("\nWhat is the second date ?\n");
             date2 = constr_Date();
-            sprintf(linedate, "%d-%d-%d", date2.year, date2.month, date2.days);
-            athlete_progression(filename, typetraining, date1, date2);
+            sprintf(linedate, "%d-%d-%d", date2.year, date2.month, date2.days); // pareil ici 
+            athlete_progression(filename, typetraining, date1, date2); // on renvoie vers la fonction pour calculer la progression 
         }
     } while (choice_progress != 2);
+printf("\n\n\n\n\n\n\nGoodbye, see you soon ! :D\n");
     fclose(file);
     return 0;
 }
