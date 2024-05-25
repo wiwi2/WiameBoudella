@@ -3,8 +3,9 @@
 #include <string.h>
 #include "athlete_training.h"
 #include "input.h"
-#include "datetime_util.h"
-#include "file_util.h"
+#include "date.h"
+#include "time1.h"
+#include "file_io.h"
 
 
 void add_training(const char *filename) { // fonction pour ajouter des entrainements à l'athlete choisi 

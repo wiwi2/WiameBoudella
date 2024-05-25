@@ -1,7 +1,8 @@
 #ifndef ATHLETE_TRAINING_H
 #define ATHLETE_TRAINING_H
 
-#include "datetime_util.h"
+#include "date.h"
+#include "time1.h"
 
 typedef struct {
     char name[50];
