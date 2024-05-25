@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "input.h"
-#include "datetime_util.h"
+#include "date.h"
+#include "time1.h"
 #include "athlete_training.h"
 #include "file_io.h"
 
