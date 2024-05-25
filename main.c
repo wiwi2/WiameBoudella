@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <string.h>
+
 #include "input.h"
 #include "date.h"
 #include "time1.h"
