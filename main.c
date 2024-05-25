@@ -2,7 +2,7 @@
 #include "input.h"
 #include "datetime_util.h"
 #include "athlete_training.h"
-#include "file_util.h"
+#include "file_io.h"
 
 int main() {
 // création des athlètes
